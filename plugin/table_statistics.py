@@ -14,7 +14,8 @@ type TargetValue = int | str
 
 @Operations.register_operation("alter_column_statistics_target")
 class AlterColumnStatisticsTargetOp(MigrateOperation):
-    def __init__(self, table_name: str, column_name: str, new_target: TargetValue, prev_target: TargetValue | None = "default") -> None:
+    def __init__(self, schema_name: str | None, table_name: str, column_name: str, new_target: TargetValue, prev_target: TargetValue | None = "default") -> None:
+        self.schema_name = schema_name or "public"
         self.table_name = table_name
         self.column_name = column_name
 
@@ -39,12 +40,13 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
             )
 
     @classmethod
-    def alter_column_statistics_target(cls, operations: Operations, table_name: str, column_name: str, new_value: TargetValue, prev_value: TargetValue | None = "default") -> Any:
-        op = cls(table_name, column_name, new_value, prev_value)
+    def alter_column_statistics_target(cls, operations: Operations, schema_name: str | None, table_name: str, column_name: str, new_value: TargetValue, prev_value: TargetValue | None = "default") -> Any:
+        op = cls(schema_name, table_name, column_name, new_value, prev_value)
         return operations.invoke(op)
 
     def reverse(self) -> 'AlterColumnStatisticsTargetOp':
         return AlterColumnStatisticsTargetOp(
+            schema_name=self.schema_name,
             table_name=self.table_name,
             column_name=self.column_name,
             new_target=self.prev_target if self.prev_target is not None else "default",
@@ -53,16 +55,17 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
 @renderers.dispatch_for(AlterColumnStatisticsTargetOp)
 def _alter_statistics_target(autogen_context: AutogenContext, op: AlterColumnStatisticsTargetOp) -> str:
     tmpl = (
-        "%(prefix)salter_column_statistics_target(%(table)r, %(columns)s, %(new_target)r, %(prev_target)r)"
+        "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r, %(prev_target)r)"
     )
 
     if op.prev_target is None or op.prev_target == "default":
         tmpl = (
-            "%(prefix)salter_column_statistics_target(%(table)r, %(columns)s, %(new_target)r)"
+            "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r)"
         )
 
     return tmpl % {
         "prefix": _alembic_autogenerate_prefix(autogen_context),
+        "schema_name": str(op.schema_name),
         "table": str(op.table_name),
         "columns": repr(op.column_name),
         "new_target": op.new_target,
@@ -72,10 +75,10 @@ def _alter_statistics_target(autogen_context: AutogenContext, op: AlterColumnSta
 
 @Operations.implementation_for(AlterColumnStatisticsTargetOp)
 def _alter_column_statistics_target_impl(operations: Operations, operation: AlterColumnStatisticsTargetOp) -> None:
-    logger.info(f"Executing ALTER TABLE {operation.table_name} ALTER COLUMN {operation.column_name} SET STATISTICS {operation.new_target}")
+    logger.info(f"Executing ALTER TABLE {operation.schema_name}.{operation.table_name} ALTER COLUMN {operation.column_name} SET STATISTICS {operation.new_target}")
 
     operations.execute(
-        f"ALTER TABLE {operation.table_name} ALTER COLUMN {operation.column_name} SET STATISTICS {operation.new_target}"
+        f"ALTER TABLE {operation.schema_name}.{operation.table_name} ALTER COLUMN {operation.column_name} SET STATISTICS {operation.new_target}"
     )
 
 def _get_column_stat_target(column: Column[Any]) -> str:
@@ -88,9 +91,12 @@ def _load_table_metadata(autogen_context: AutogenContext, schema: str | None, tn
 
     try:
         table_metadata = connection.execute(
-            text("SELECT attname, attstattarget FROM pg_attribute WHERE attrelid = :table_name\\:\\:regclass AND attname in :column_names"),
+            text(
+                "SELECT attname, attstattarget FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = :table_name AND relnamespace::regnamespace::text = :schema_name) AND attname in :column_names"
+            ),
             {
-                "table_name": tname,
+                "table_name": str(tname),
+                "schema_name": str(schema or "public"),
                 "column_names": tuple(column_names),
             },
         ).fetchall()
@@ -119,9 +125,12 @@ def compare_tables_column_statistics(
     schema: str | None,
     tname: quoted_name | str,
     conn_table: Table[Any] | None,
-    metadata_table: Table[Any],
+    metadata_table: Table[Any] | None,
 ) -> PriorityDispatchResult:
     logger.debug(f"Comparing tables '{tname}'")
+    if metadata_table is None:
+        logger.debug(f"No metadata table found for '{tname}', skipping")
+        return PriorityDispatchResult.CONTINUE
 
     existing_metadata = _load_table_metadata(autogen_context, schema, tname, list(metadata_table.columns.keys()))
 
@@ -140,6 +149,7 @@ def compare_tables_column_statistics(
 
         logger.info(f"Detected change in statistics for column '{tname}.{cname}': metadata target={stat_target}, connection target={conn_stat_target}")
         alter_column_op = AlterColumnStatisticsTargetOp(
+            schema_name=schema,
             table_name=tname,
             column_name=cname,
             new_target=stat_target,

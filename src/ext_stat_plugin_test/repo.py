@@ -1,8 +1,8 @@
 from sqlalchemy import Column, Integer, String, Index, PrimaryKeyConstraint
-from .db import Base
+from .db import PublicBase, TestBase
 from plugin.extended_stat import ExtendedStatistics, NDISTINCT, MCV
 
-class SomeClass(Base):
+class SomeClass(PublicBase):
     __tablename__ = 'some_table'
 
     id = Column(Integer, info={'ext_stats': {
@@ -27,5 +27,30 @@ class SomeClass(Base):
             MCV,
             "id",
             "name",
+        ),
+    )
+
+class SomeClassTest(TestBase):
+    __tablename__ = 'some_table_test'
+
+    id = Column(Integer, primary_key=True, info={'ext_stats': {
+        "target": 1000,
+    }})
+    name = Column(String(50))
+    description = Column(String(50))
+
+    __table_args__ = (
+        ExtendedStatistics(
+            "some_table_test_name_description_stats",
+            NDISTINCT,
+            "name",
+            "description",
+        ),
+        ExtendedStatistics(
+            "some_table_test_id_name_description_stats",
+            MCV,
+            "id",
+            "name",
+            "description",
         ),
     )

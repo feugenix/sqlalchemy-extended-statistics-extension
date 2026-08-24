@@ -3,6 +3,8 @@ from sqlalchemy.ext.declarative import declarative_base
 
 
 engine = create_engine('postgresql://admin:@localhost/test_sqlaclhemy')
-metadata = MetaData()
+public_metadata = MetaData()
+test_metadata = MetaData(schema="test")
 
-Base = declarative_base(metadata=metadata)
+PublicBase = declarative_base(metadata=public_metadata)
+TestBase = declarative_base(metadata=test_metadata)

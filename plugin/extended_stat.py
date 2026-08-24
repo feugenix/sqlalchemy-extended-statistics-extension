@@ -3,7 +3,7 @@ from alembic.operations import Operations, MigrateOperation
 from alembic.autogenerate.api import AutogenContext
 from alembic.autogenerate import renderers
 from alembic.util import PriorityDispatchResult
-from sqlalchemy import Table, text, ColumnElement, quoted_name
+from sqlalchemy import Connection, Table, text, ColumnElement, quoted_name
 from logging import getLogger
 from sqlalchemy.schema import SchemaItem
 from sqlalchemy.sql.base import SchemaEventTarget
@@ -144,12 +144,16 @@ def drop_statistics_impl(operations: Operations, operation: DropStatisticsOp) ->
         f"DROP STATISTICS {operation.schema_name}.{operation.name}"
     )
 
-def _load_existing_table_statistics(conn, table_name: str) -> set[str]:
+def _load_existing_table_statistics(conn: Connection | None, table_name: str) -> set[str]:
+    if conn is None:
+        logger.warning(f"Connection is not available for loading existing statistics for table '{table_name}'")
+        return set()
+
     try:
         table_metadata = conn.execute(
             text(
                 """
-                SELECT s.stxname AS statistics_name FROM pg_statistic_ext s WHERE s.stxrelid = :table_name::regclass
+                SELECT s.stxname AS statistics_name FROM pg_statistic_ext s WHERE s.stxrelid = (SELECT oid FROM pg_class WHERE relname = :table_name)
                 """
             ),
             {"table_name": table_name},
