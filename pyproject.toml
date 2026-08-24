@@ -1,0 +1,18 @@
+[project]
+name = "ext-stat-plugin-test"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Evgenii Bordunov", email = "feugenix@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.19.1",
+    "psycopg2-binary>=2.9.12",
+    "sqlalchemy>=2.0.51",
+]
+
+[build-system]
+requires = ["uv_build>=0.12.3,<0.13.0"]
+build-backend = "uv_build"
