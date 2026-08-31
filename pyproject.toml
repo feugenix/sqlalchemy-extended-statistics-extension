@@ -3,6 +3,8 @@ name = "ext-stat-plugin"
 version = "0.1.0"
 description = "Alembic & SQLAlchemy plugin for PostgreSQL extended statistics and column statistics targets"
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [
     { name = "Evgenii Bordunov", email = "feugenix@gmail.com" }
 ]
