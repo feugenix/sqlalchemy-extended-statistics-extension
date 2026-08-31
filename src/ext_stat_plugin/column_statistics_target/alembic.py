@@ -23,7 +23,13 @@ def _load_table_metadata(autogen_context: AutogenContext, schema: str | None, tn
     try:
         table_metadata = connection.execute(
             text(
-                "SELECT attname, attstattarget FROM pg_attribute WHERE attrelid = (SELECT oid FROM pg_class WHERE relname = :table_name AND relnamespace::regnamespace::text = :schema_name) AND attname = ANY(ARRAY[:column_names])"
+                """
+                SELECT a.attname, a.attstattarget
+                FROM pg_attribute a
+                JOIN pg_class c ON c.oid = a.attrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE c.relname = :table_name AND n.nspname = :schema_name AND a.attname = ANY(ARRAY[:column_names])
+                """
             ),
             {
                 "table_name": str(tname),
@@ -41,7 +47,7 @@ def _load_table_metadata(autogen_context: AutogenContext, schema: str | None, tn
     for row in table_metadata:
         column_name = row.attname
         stat_target = row.attstattarget
-        if stat_target == -1:
+        if stat_target == -1 or stat_target is None:
             stat_target = "default"
 
         logger.debug(f"Loaded statistics for column '{tname}.{column_name}': {stat_target}")

@@ -1,0 +1,32 @@
+[project]
+name = "ext-stat-plugin"
+version = "0.1.0"
+description = "Alembic & SQLAlchemy plugin for PostgreSQL extended statistics and column statistics targets"
+readme = "README.md"
+authors = [
+    { name = "Evgenii Bordunov", email = "feugenix@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.14.0",
+    "sqlalchemy>=2.0.0",
+    "psycopg2-binary>=2.9.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "testcontainers[postgres]>=4.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/ext_stat_plugin"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [".", "src"]

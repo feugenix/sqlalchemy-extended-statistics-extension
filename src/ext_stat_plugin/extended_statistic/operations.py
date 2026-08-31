@@ -2,13 +2,26 @@ from typing import Any, Sequence
 from alembic.operations import Operations, MigrateOperation
 from alembic.autogenerate.api import AutogenContext
 from alembic.autogenerate import renderers
-from sqlalchemy import ColumnElement
+from sqlalchemy import ColumnElement, Column
 from logging import getLogger
 
 from .sqlalchemy import StatisticsKind
 from ..utils import coerce_to_quoted, get_alembic_autogenerate_prefix
 
 logger = getLogger("alembic.plugins.ext_stats_plugin.extended_statistics.operations")
+
+
+def _format_expression(expr: str | ColumnElement[Any]) -> str:
+    if isinstance(expr, Column):
+        return coerce_to_quoted(expr.name)
+    expr_str = str(expr).strip()
+    if "," in expr_str:
+        return expr_str
+    if expr_str.startswith("(") and expr_str.endswith(")"):
+        return expr_str
+    if "(" in expr_str or any(op in expr_str for op in [" + ", " - ", " * ", " / ", " || ", "::"]):
+        return f"({expr_str})"
+    return coerce_to_quoted(expr_str)
 
 @Operations.register_operation("create_statistics")
 class CreateStatisticsOp(MigrateOperation):
@@ -34,17 +47,46 @@ class CreateStatisticsOp(MigrateOperation):
 
 @Operations.register_operation("drop_statistics")
 class DropStatisticsOp(MigrateOperation):
-    def __init__(self, schema_name: str | None, statistics_name: str) -> None:
+    def __init__(
+        self,
+        schema_name: str | None,
+        statistics_name: str,
+        table_name: str | None = None,
+        kind: set[StatisticsKind] | None = None,
+        expressions: Sequence[str | ColumnElement[Any]] | None = None,
+    ) -> None:
         self.schema_name = schema_name or "public"
         self.name = statistics_name
+        self.table_name = table_name
+        self.kind = kind or set()
+        self.expressions = tuple(expressions) if expressions is not None else ()
 
     @classmethod
-    def drop_statistics(cls, operations: Operations, schema_name: str | None, statistics_name: str) -> Any:
-        op = cls(schema_name, statistics_name)
+    def drop_statistics(
+        cls,
+        operations: Operations,
+        schema_name: str | None,
+        statistics_name: str,
+        table_name: str | None = None,
+        kind: list[StatisticsKind] | None = None,
+        expressions: list[str | ColumnElement[Any]] | None = None,
+    ) -> Any:
+        kind_set = set(kind) if kind is not None else None
+        op = cls(schema_name, statistics_name, table_name, kind_set, expressions)
         return operations.invoke(op)
 
-    def reverse(self) -> 'DropStatisticsOp':
-        raise NotImplementedError("Reverse operation for DropStatisticsOp is not implemented.")
+    def reverse(self) -> 'CreateStatisticsOp':
+        if not self.table_name or not self.kind or not self.expressions:
+            raise NotImplementedError(
+                "Reverse operation for DropStatisticsOp requires table_name, kind, and expressions."
+            )
+        return CreateStatisticsOp(
+            self.schema_name,
+            self.table_name,
+            self.name,
+            self.kind,
+            *self.expressions,
+        )
 
 def _get_expressions_string(expressions: Sequence[str | ColumnElement[Any]]) -> str:
     return ", ".join(f"'{str(expr)}'" for expr in expressions)
@@ -86,7 +128,7 @@ def create_statistics_impl(operations: Operations, operation: CreateStatisticsOp
 
     logger.info(f"Executing CreateStatisticsOp: schema_name={operation.schema_name} table_name={operation.table_name}, name={operation.name}, kind={operation.kind}, expressions={operation.expressions}")
 
-    expressions_str = ", ".join(str(expr) for expr in operation.expressions)
+    expressions_str = ", ".join(_format_expression(expr) for expr in operation.expressions)
     quoted_schema_name = coerce_to_quoted(operation.schema_name)
     quoted_table_name = coerce_to_quoted(operation.table_name)
     quoted_statistics_name = coerce_to_quoted(operation.name)

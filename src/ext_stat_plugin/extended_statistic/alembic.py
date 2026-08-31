@@ -16,16 +16,30 @@ logger = getLogger("alembic.plugins.ext_stats_plugin.extended_statistics.alembic
 def _get_table_ext_stats(metadata_table: Table[Any]) -> list[ExtendedStatistics]:
     return getattr(metadata_table, "__ext_stats__", [])
 
-def _load_existing_table_statistics(conn: Connection | None, schema_name: str | None, table_name: str) -> set[str]:
+KIND_MAP_FROM_PG = {
+    "d": "NDISTINCT",
+    "f": "DEPENDENCIES",
+    "m": "MCV",
+}
+
+
+def _load_existing_table_statistics(conn: Connection | None, schema_name: str | None, table_name: str) -> dict[str, dict[str, Any]]:
     if conn is None:
         logger.warning(f"Connection is not available for loading existing statistics for table '{table_name}'")
-        return set()
+        return {}
 
     try:
         table_metadata = conn.execute(
             text(
                 """
-                SELECT s.stxname AS statistics_name FROM pg_statistic_ext s WHERE s.stxrelid = (SELECT oid FROM pg_class WHERE relname = :table_name AND relnamespace::regnamespace::text = :schema_name)
+                SELECT
+                    s.stxname AS statistics_name,
+                    s.stxkind AS kinds,
+                    pg_get_statisticsobjdef_columns(s.oid) AS cols_def
+                FROM pg_statistic_ext s
+                JOIN pg_class c ON c.oid = s.stxrelid
+                JOIN pg_namespace n ON n.oid = c.relnamespace
+                WHERE c.relname = :table_name AND n.nspname = :schema_name
                 """
             ),
             {
@@ -35,9 +49,16 @@ def _load_existing_table_statistics(conn: Connection | None, schema_name: str | 
         ).fetchall()
     except Exception as e:
         logger.warning(f"Error loading existing statistics for table '{table_name}': {e}")
-        return set()
+        return {}
 
-    return {row.statistics_name for row in table_metadata}
+    result = {}
+    for row in table_metadata:
+        kinds = {KIND_MAP_FROM_PG[k] for k in row.kinds if k in KIND_MAP_FROM_PG}
+        result[row.statistics_name] = {
+            "kind": kinds,
+            "expressions": (row.cols_def,) if row.cols_def else (),
+        }
+    return result
 
 def compare_tables_extended_statistics(
     autogen_context: AutogenContext,
@@ -58,9 +79,17 @@ def compare_tables_extended_statistics(
         logger.info("No extended statistics found. Skipping it.")
         return PriorityDispatchResult.CONTINUE
 
-    for stat_name in statistics_from_db:
+    for stat_name, stat_info in statistics_from_db.items():
         logger.debug(f"Statistics '{stat_name}' exists in database. Dropping it.")
-        upgrade_ops.ops.append(DropStatisticsOp(schema_name=schema, statistics_name=stat_name))
+        upgrade_ops.ops.append(
+            DropStatisticsOp(
+                schema_name=schema,
+                statistics_name=stat_name,
+                table_name=str(tname),
+                kind=stat_info["kind"],
+                expressions=stat_info["expressions"],
+            )
+        )
 
     for stat in statistics_from_metadata:
         logger.debug(f"Statistics '{stat.name}' defined in metadata. Creating it.")
