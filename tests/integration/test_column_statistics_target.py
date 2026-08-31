@@ -89,7 +89,7 @@ def test_column_statistics_target_lifecycle(engine: Engine):
 
         with engine.connect() as conn:
             target = get_pg_column_stat_target(conn, "public", "users", "age")
-            assert target == None or target == -1  # Default target
+            assert target is None or target == -1  # Default target
 
     finally:
         runner.cleanup()
