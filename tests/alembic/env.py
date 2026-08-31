@@ -4,11 +4,11 @@ from sqlalchemy import engine_from_config
 from sqlalchemy import pool
 
 from alembic import context
-from src.ext_stat_plugin_test.db import public_metadata, test_metadata
-from src.ext_stat_plugin_test import all_repos  # noqa: F401
+from tests.ext_stat_plugin_test.db import public_metadata, test_metadata
+from tests.ext_stat_plugin_test import all_repos  # noqa: F401
 
 from alembic.runtime.plugins import Plugin
-import plugin.main as ext_stat_plugin
+import ext_stat_plugin.main as ext_stat_plugin
 
 # Register the plugin manually
 Plugin.setup_plugin_from_module(
