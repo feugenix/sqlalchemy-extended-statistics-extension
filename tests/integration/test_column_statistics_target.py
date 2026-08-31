@@ -1,6 +1,7 @@
 import pytest
-from sqlalchemy import MetaData, Table, Column, Integer, String
+from sqlalchemy import Column, Integer, MetaData, String, Table
 from sqlalchemy.engine import Engine
+
 from tests.alembic_helpers import AlembicRunner
 from tests.utils import get_pg_column_stat_target
 
@@ -11,7 +12,7 @@ def test_column_statistics_target_lifecycle(engine: Engine):
     Test setting target, modifying target, resetting to default, and downgrading.
     """
     metadata = MetaData()
-    table = Table(
+    Table(
         "users",
         metadata,
         Column("id", Integer, primary_key=True),
@@ -23,7 +24,10 @@ def test_column_statistics_target_lifecycle(engine: Engine):
     try:
         # 1. Initial migration: create table and set stats target to 1000
         script1 = runner.autogenerate("create_users_with_target")
-        assert "alter_column_statistics_target('public', 'users', 'age', '1000')" in script1
+        assert (
+            "alter_column_statistics_target('public', 'users', 'age', '1000')"
+            in script1
+        )
         runner.upgrade("head")
 
         with engine.connect() as conn:
@@ -44,7 +48,10 @@ def test_column_statistics_target_lifecycle(engine: Engine):
         )
         runner.set_metadata(metadata2)
         script2 = runner.autogenerate("update_age_target_500")
-        assert "alter_column_statistics_target('public', 'users', 'age', '500', 1000)" in script2
+        assert (
+            "alter_column_statistics_target('public', 'users', 'age', '500', 1000)"
+            in script2
+        )
         runner.upgrade("head")
 
         with engine.connect() as conn:
@@ -74,7 +81,10 @@ def test_column_statistics_target_lifecycle(engine: Engine):
         )
         runner.set_metadata(metadata3)
         script3 = runner.autogenerate("reset_age_target_default")
-        assert "alter_column_statistics_target('public', 'users', 'age', 'default', 500)" in script3
+        assert (
+            "alter_column_statistics_target('public', 'users', 'age', 'default', 500)"
+            in script3
+        )
         runner.upgrade("head")
 
         with engine.connect() as conn:
@@ -101,7 +111,10 @@ def test_column_statistics_target_custom_schema(engine: Engine):
     runner = AlembicRunner(engine, schema_metadata, schema="test_schema")
     try:
         script = runner.autogenerate("create_test_products")
-        assert "alter_column_statistics_target('test_schema', 'products', 'price', '2500')" in script
+        assert (
+            "alter_column_statistics_target('test_schema', 'products', 'price', '2500')"
+            in script
+        )
         runner.upgrade("head")
 
         with engine.connect() as conn:

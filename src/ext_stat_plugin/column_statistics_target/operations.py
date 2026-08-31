@@ -1,17 +1,27 @@
-from typing import Any
-from alembic.operations import Operations, MigrateOperation
-from alembic.autogenerate.api import AutogenContext
-from alembic.autogenerate import renderers
 from logging import getLogger
-from ..utils import get_alembic_autogenerate_prefix, coerce_to_quoted
+from typing import Any
+
+from alembic.autogenerate import renderers
+from alembic.autogenerate.api import AutogenContext
+from alembic.operations import MigrateOperation, Operations
+
+from ..utils import coerce_to_quoted, get_alembic_autogenerate_prefix
 
 logger = getLogger("alembic.plugins.ext_stats_plugin.column_statistics_target")
 
 type TargetValue = int | str
 
+
 @Operations.register_operation("alter_column_statistics_target")
 class AlterColumnStatisticsTargetOp(MigrateOperation):
-    def __init__(self, schema_name: str | None, table_name: str, column_name: str, new_target: TargetValue, prev_target: TargetValue | None = "default") -> None:
+    def __init__(
+        self,
+        schema_name: str | None,
+        table_name: str,
+        column_name: str,
+        new_target: TargetValue,
+        prev_target: TargetValue | None = "default",
+    ) -> None:
         self.schema_name = schema_name or "public"
         self.table_name = table_name
         self.column_name = column_name
@@ -37,11 +47,19 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
             )
 
     @classmethod
-    def alter_column_statistics_target(cls, operations: Operations, schema_name: str | None, table_name: str, column_name: str, new_target: TargetValue, prev_target: TargetValue | None = "default") -> Any:
+    def alter_column_statistics_target(
+        cls,
+        operations: Operations,
+        schema_name: str | None,
+        table_name: str,
+        column_name: str,
+        new_target: TargetValue,
+        prev_target: TargetValue | None = "default",
+    ) -> Any:
         op = cls(schema_name, table_name, column_name, new_target, prev_target)
         return operations.invoke(op)
 
-    def reverse(self) -> 'AlterColumnStatisticsTargetOp':
+    def reverse(self) -> "AlterColumnStatisticsTargetOp":
         return AlterColumnStatisticsTargetOp(
             schema_name=self.schema_name,
             table_name=self.table_name,
@@ -49,16 +67,15 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
             new_target=self.prev_target if self.prev_target is not None else "default",
         )
 
+
 @renderers.dispatch_for(AlterColumnStatisticsTargetOp)
-def _alter_statistics_target(autogen_context: AutogenContext, op: AlterColumnStatisticsTargetOp) -> str:
-    tmpl = (
-        "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r, %(prev_target)r)"
-    )
+def _alter_statistics_target(
+    autogen_context: AutogenContext, op: AlterColumnStatisticsTargetOp
+) -> str:
+    tmpl = "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r, %(prev_target)r)"
 
     if op.prev_target is None or op.prev_target == "default":
-        tmpl = (
-            "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r)"
-        )
+        tmpl = "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r)"
 
     return tmpl % {
         "prefix": get_alembic_autogenerate_prefix(autogen_context),
@@ -71,8 +88,12 @@ def _alter_statistics_target(autogen_context: AutogenContext, op: AlterColumnSta
 
 
 @Operations.implementation_for(AlterColumnStatisticsTargetOp)
-def _alter_column_statistics_target_impl(operations: Operations, operation: AlterColumnStatisticsTargetOp) -> None:
-    logger.info(f"Executing ALTER TABLE {operation.schema_name}.{operation.table_name} ALTER COLUMN {operation.column_name} SET STATISTICS {operation.new_target}")
+def _alter_column_statistics_target_impl(
+    operations: Operations, operation: AlterColumnStatisticsTargetOp
+) -> None:
+    logger.info(
+        f"Executing ALTER TABLE {operation.schema_name}.{operation.table_name} ALTER COLUMN {operation.column_name} SET STATISTICS {operation.new_target}"
+    )
 
     quoted_schema = coerce_to_quoted(operation.schema_name)
     quoted_table_name = coerce_to_quoted(operation.table_name)

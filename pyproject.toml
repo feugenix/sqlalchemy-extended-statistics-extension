@@ -30,3 +30,9 @@ packages = ["src/ext_stat_plugin"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = [".", "src"]
+
+[dependency-groups]
+dev = [
+    "mypy>=2.3.1",
+    "ruff>=0.16.5",
+]

@@ -1,9 +1,12 @@
-from alembic.runtime.plugins import Plugin
 from logging import getLogger
+
+from alembic.runtime.plugins import Plugin
+
 from .column_statistics_target.alembic import compare_tables_column_statistics
 from .extended_statistic.alembic import compare_tables_extended_statistics
 
 logger = getLogger("alembic.plugins.ext_stats_plugin.main")
+
 
 def setup(plugin: Plugin) -> None:
     logger.debug("Setting up extended statistics plugin")

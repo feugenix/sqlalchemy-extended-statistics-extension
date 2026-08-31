@@ -1,10 +1,10 @@
-import pytest
-from sqlalchemy import Table, Column, Integer, String, MetaData
+from sqlalchemy import Column, Integer, MetaData, String, Table
+
 from ext_stat_plugin.extended_statistic.sqlalchemy import (
-    ExtendedStatistics,
-    NDISTINCT,
-    MCV,
     DEPENDENCIES,
+    MCV,
+    NDISTINCT,
+    ExtendedStatistics,
     _get_default_statistics_name,
 )
 
@@ -16,10 +16,14 @@ def test_default_statistics_name():
     name_none_schema = _get_default_statistics_name(None, "my_table", "col1")
     assert name_none_schema == "public_my_table_col1_stats"
 
-    name_special = _get_default_statistics_name("My-Schema", "Order Details", "user", "Item-Count")
+    name_special = _get_default_statistics_name(
+        "My-Schema", "Order Details", "user", "Item-Count"
+    )
     assert name_special == "My-Schema_Order Details_user_Item-Count_stats"
 
-    name_expr = _get_default_statistics_name("public", "metrics", "(lower(name))", "(val1 + val2)")
+    name_expr = _get_default_statistics_name(
+        "public", "metrics", "(lower(name))", "(val1 + val2)"
+    )
     assert name_expr == "public_metrics_(lower(name))_(val1 + val2)_stats"
 
 
@@ -41,7 +45,7 @@ def test_extended_statistics_with_expressions():
     )
     table.append_column(stat)
 
-    ext_stats = getattr(table, "__ext_stats__")
+    ext_stats = table.__ext_stats__
     assert len(ext_stats) == 1
     assert ext_stats[0].name == "public_expr_table_(lower(name))_expr_stats"
     assert ext_stats[0].kind == {NDISTINCT, MCV}
@@ -75,7 +79,7 @@ def test_extended_statistics_attachment():
 
     # Check that statistics were attached to table.__ext_stats__
     assert hasattr(table, "__ext_stats__")
-    ext_stats = getattr(table, "__ext_stats__")
+    ext_stats = table.__ext_stats__
     assert len(ext_stats) == 2
 
     assert ext_stats[0].name == "custom_stat_name"

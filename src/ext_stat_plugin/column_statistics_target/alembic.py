@@ -1,12 +1,12 @@
-from typing import Any
 from logging import getLogger
+from typing import Any
+
 from alembic.autogenerate.api import AutogenContext
 from alembic.operations.ops import UpgradeOps
 from alembic.util import PriorityDispatchResult
-from sqlalchemy import quoted_name, Column, Table, text
+from sqlalchemy import Column, Table, quoted_name, text
 
 from .operations import AlterColumnStatisticsTargetOp
-from ..utils import coerce_to_quoted
 
 logger = getLogger("alembic.plugins.ext_stats_plugin.column_statistics_target.alembic")
 
@@ -15,7 +15,12 @@ def _get_column_stat_target(column: Column[Any]) -> str:
     return str(column.info.get("ext_stats", {}).get("target", "default"))
 
 
-def _load_table_metadata(autogen_context: AutogenContext, schema: str | None, tname: quoted_name | str, column_names: list[str]) -> dict[str, str | None]:
+def _load_table_metadata(
+    autogen_context: AutogenContext,
+    schema: str | None,
+    tname: quoted_name | str,
+    column_names: list[str],
+) -> dict[str, str | None]:
     connection = autogen_context.connection
     if connection is None:
         raise ValueError("Connection is not available in autogen_context")
@@ -37,20 +42,24 @@ def _load_table_metadata(autogen_context: AutogenContext, schema: str | None, tn
                 "column_names": [str(c) for c in column_names],
             },
         ).fetchall()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001
         logger.warning(f"Error loading table metadata for '{tname}': {e}")
         return {}
 
     result: dict[str, str | None] = {}
 
-    logger.debug(f"Loaded metadata for table '{tname}': {len(table_metadata)} columns found")
+    logger.debug(
+        f"Loaded metadata for table '{tname}': {len(table_metadata)} columns found"
+    )
     for row in table_metadata:
         column_name = row.attname
         stat_target = row.attstattarget
         if stat_target == -1 or stat_target is None:
             stat_target = "default"
 
-        logger.debug(f"Loaded statistics for column '{tname}.{column_name}': {stat_target}")
+        logger.debug(
+            f"Loaded statistics for column '{tname}.{column_name}': {stat_target}"
+        )
         result[column_name] = stat_target
 
     return result
@@ -61,8 +70,8 @@ def compare_tables_column_statistics(
     upgrade_ops: UpgradeOps,
     schema: str | None,
     tname: quoted_name | str,
-    conn_table: Table[Any] | None,
-    metadata_table: Table[Any] | None,
+    conn_table: Table | None,
+    metadata_table: Table | None,
 ) -> PriorityDispatchResult:
     logger.debug(f"Comparing tables '{tname}'")
     if metadata_table is None:
@@ -70,7 +79,9 @@ def compare_tables_column_statistics(
         return PriorityDispatchResult.CONTINUE
 
     if conn_table is not None:
-        existing_metadata = _load_table_metadata(autogen_context, schema, tname, list(metadata_table.columns.keys()))
+        existing_metadata = _load_table_metadata(
+            autogen_context, schema, tname, list(metadata_table.columns.keys())
+        )
     else:
         existing_metadata = {}
 
@@ -79,15 +90,21 @@ def compare_tables_column_statistics(
         conn_stat_target = existing_metadata.get(cname, "default")
 
         if stat_target == conn_stat_target:
-            logger.debug(f"No changes in statistics for column '{tname}.{cname}', skipping")
+            logger.debug(
+                f"No changes in statistics for column '{tname}.{cname}', skipping"
+            )
             continue
 
         # This is not a change because current target is default and there is no previous target
         if stat_target == "default" and conn_stat_target is None:
-            logger.debug(f"Column '{tname}.{cname}' has no previous statistics target and is set to default, skipping")
+            logger.debug(
+                f"Column '{tname}.{cname}' has no previous statistics target and is set to default, skipping"
+            )
             continue
 
-        logger.info(f"Detected change in statistics for column '{tname}.{cname}': metadata target={stat_target}, connection target={conn_stat_target}")
+        logger.info(
+            f"Detected change in statistics for column '{tname}.{cname}': metadata target={stat_target}, connection target={conn_stat_target}"
+        )
         alter_column_op = AlterColumnStatisticsTargetOp(
             schema_name=schema,
             table_name=tname,

@@ -1,8 +1,11 @@
 from typing import Any
+
 from sqlalchemy import Connection, text
 
 
-def get_pg_extended_stats(connection: Connection, schema: str | None, table_name: str) -> dict[str, dict[str, Any]]:
+def get_pg_extended_stats(
+    connection: Connection, schema: str | None, table_name: str
+) -> dict[str, dict[str, Any]]:
     """
     Returns existing extended statistics for a table in PostgreSQL.
     Result format: { stat_name: { 'kinds': set[str], 'columns': list[str], 'expressions': list[str], 'def_columns': str } }
@@ -25,15 +28,17 @@ def get_pg_extended_stats(connection: Connection, schema: str | None, table_name
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = :schema_name AND c.relname = :table_name
     """)
-    rows = connection.execute(query, {"schema_name": schema_name, "table_name": table_name}).fetchall()
+    rows = connection.execute(
+        query, {"schema_name": schema_name, "table_name": table_name}
+    ).fetchall()
 
     res: dict[str, dict[str, Any]] = {}
     # PostgreSQL stxkind stores char array: 'd' for ndistinct, 'f' for dependencies, 'm' for mcv, 'e' for expressions
     kind_map = {
-        'd': 'NDISTINCT',
-        'f': 'DEPENDENCIES',
-        'm': 'MCV',
-        'e': 'EXPRESSIONS',
+        "d": "NDISTINCT",
+        "f": "DEPENDENCIES",
+        "m": "MCV",
+        "e": "EXPRESSIONS",
     }
     for row in rows:
         kinds = {kind_map.get(k, k) for k in row.kinds}
@@ -46,7 +51,9 @@ def get_pg_extended_stats(connection: Connection, schema: str | None, table_name
     return res
 
 
-def get_pg_column_stat_target(connection: Connection, schema: str | None, table_name: str, column_name: str) -> int | None:
+def get_pg_column_stat_target(
+    connection: Connection, schema: str | None, table_name: str, column_name: str
+) -> int | None:
     """
     Returns attstattarget for a given column in PostgreSQL.
     None or -1 means default, or an integer 0-10000.
@@ -59,9 +66,12 @@ def get_pg_column_stat_target(connection: Connection, schema: str | None, table_
         JOIN pg_namespace n ON n.oid = c.relnamespace
         WHERE n.nspname = :schema_name AND c.relname = :table_name AND a.attname = :column_name
     """)
-    res = connection.execute(query, {
-        "schema_name": schema_name,
-        "table_name": table_name,
-        "column_name": column_name,
-    }).scalar_one_or_none()
+    res = connection.execute(
+        query,
+        {
+            "schema_name": schema_name,
+            "table_name": table_name,
+            "column_name": column_name,
+        },
+    ).scalar_one_or_none()
     return res

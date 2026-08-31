@@ -1,18 +1,24 @@
 import os
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
-from typing import Generator
-from alembic.config import Config
+
 from alembic import command
+from alembic.config import Config
 from alembic.runtime.plugins import Plugin
 from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
+
 import ext_stat_plugin.main as ext_stat_plugin_main
 
 
 class AlembicRunner:
-    def __init__(self, engine: Engine, target_metadata: MetaData | list[MetaData], schema: str | None = None):
+    def __init__(
+        self,
+        engine: Engine,
+        target_metadata: MetaData | list[MetaData],
+        schema: str | None = None,
+    ):
         self.engine = engine
         self.target_metadata = target_metadata
         self.schema = schema
@@ -30,8 +36,7 @@ class AlembicRunner:
         # Register plugin only if not already registered
         try:
             Plugin.setup_plugin_from_module(
-                ext_stat_plugin_main,
-                "extended_statistics_plugin"
+                ext_stat_plugin_main, "extended_statistics_plugin"
             )
         except ValueError:
             pass
@@ -153,7 +158,7 @@ run_migrations_online()
         """Runs autogenerate revision and returns the generated revision script content."""
         with self.engine.connect() as conn:
             self.config.attributes["connection"] = conn
-            rev = command.revision(self.config, message=message, autogenerate=True)
+            command.revision(self.config, message=message, autogenerate=True)
         # Find the latest generated file in versions_dir
         rev_files = list(Path(self.versions_dir).glob("*.py"))
         latest_file = max(rev_files, key=os.path.getctime)

@@ -1,7 +1,9 @@
 from alembic.autogenerate.api import AutogenContext
 
+
 def get_alembic_autogenerate_prefix(autogen_context: AutogenContext) -> str:
     return autogen_context.opts.get("alembic_module_prefix", "op.")
+
 
 def strip_double_quotes(sql: str) -> str:
     """

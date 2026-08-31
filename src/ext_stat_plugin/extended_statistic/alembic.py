@@ -1,20 +1,20 @@
-from sqlalchemy import Connection, Table, text
-from alembic.autogenerate.api import AutogenContext
-from alembic.operations.ops import UpgradeOps
-from alembic.util import PriorityDispatchResult
-from sqlalchemy import Table, quoted_name
 from logging import getLogger
 from typing import Any
 
+from alembic.autogenerate.api import AutogenContext
+from alembic.operations.ops import UpgradeOps
+from alembic.util import PriorityDispatchResult
+from sqlalchemy import Connection, Table, quoted_name, text
+
 from .operations import CreateStatisticsOp, DropStatisticsOp
 from .sqlalchemy import ExtendedStatistics
-from ..utils import coerce_to_quoted
-
 
 logger = getLogger("alembic.plugins.ext_stats_plugin.extended_statistics.alembic")
 
-def _get_table_ext_stats(metadata_table: Table[Any]) -> list[ExtendedStatistics]:
+
+def _get_table_ext_stats(metadata_table: Table) -> list[ExtendedStatistics]:
     return getattr(metadata_table, "__ext_stats__", [])
+
 
 KIND_MAP_FROM_PG = {
     "d": "NDISTINCT",
@@ -23,9 +23,13 @@ KIND_MAP_FROM_PG = {
 }
 
 
-def _load_existing_table_statistics(conn: Connection | None, schema_name: str | None, table_name: str) -> dict[str, dict[str, Any]]:
+def _load_existing_table_statistics(
+    conn: Connection | None, schema_name: str | None, table_name: str
+) -> dict[str, dict[str, Any]]:
     if conn is None:
-        logger.warning(f"Connection is not available for loading existing statistics for table '{table_name}'")
+        logger.warning(
+            f"Connection is not available for loading existing statistics for table '{table_name}'"
+        )
         return {}
 
     try:
@@ -47,8 +51,10 @@ def _load_existing_table_statistics(conn: Connection | None, schema_name: str | 
                 "schema_name": str(schema_name or "public"),
             },
         ).fetchall()
-    except Exception as e:
-        logger.warning(f"Error loading existing statistics for table '{table_name}': {e}")
+    except Exception as e:  # noqa: BLE001
+        logger.warning(
+            f"Error loading existing statistics for table '{table_name}': {e}"
+        )
         return {}
 
     result = {}
@@ -60,20 +66,25 @@ def _load_existing_table_statistics(conn: Connection | None, schema_name: str | 
         }
     return result
 
+
 def compare_tables_extended_statistics(
     autogen_context: AutogenContext,
     upgrade_ops: UpgradeOps,
     schema: str | None,
     tname: quoted_name | str,
-    conn_table: Table[Any] | None,
-    metadata_table: Table[Any],
+    conn_table: Table | None,
+    metadata_table: Table,
 ) -> PriorityDispatchResult:
     logger.debug(f"Comparing tables '{tname}'")
 
     schema = schema or "public"
 
-    statistics_from_db = _load_existing_table_statistics(autogen_context.connection, schema, str(tname))
-    statistics_from_metadata: list[ExtendedStatistics] = [stat for stat in _get_table_ext_stats(metadata_table)]
+    statistics_from_db = _load_existing_table_statistics(
+        autogen_context.connection, schema, str(tname)
+    )
+    statistics_from_metadata: list[ExtendedStatistics] = [
+        stat for stat in _get_table_ext_stats(metadata_table)
+    ]
 
     if not statistics_from_metadata and not statistics_from_db:
         logger.info("No extended statistics found. Skipping it.")

@@ -1,11 +1,11 @@
 import pytest
-from sqlalchemy import MetaData, Table, Column, Integer, String, func, text
+from sqlalchemy import Column, Integer, MetaData, String, Table, func
 from sqlalchemy.engine import Engine
+
 from ext_stat_plugin.extended_statistic.sqlalchemy import (
-    ExtendedStatistics,
-    NDISTINCT,
     MCV,
-    DEPENDENCIES,
+    NDISTINCT,
+    ExtendedStatistics,
 )
 from tests.alembic_helpers import AlembicRunner
 from tests.utils import get_pg_extended_stats
@@ -37,7 +37,10 @@ def test_extended_statistics_on_raw_sql_expressions(engine: Engine):
     try:
         # 1. Autogenerate & upgrade
         script1 = runner.autogenerate("create_users_with_expr_stats")
-        assert "create_statistics('public', 'users', 'users_lower_name_a_b_stats'" in script1
+        assert (
+            "create_statistics('public', 'users', 'users_lower_name_a_b_stats'"
+            in script1
+        )
         assert "'(lower(name))'" in script1
         assert "'(a + b)'" in script1
 
@@ -72,7 +75,10 @@ def test_extended_statistics_on_raw_sql_expressions(engine: Engine):
         runner.set_metadata(metadata2)
         script2 = runner.autogenerate("update_users_expr_stats")
         assert "drop_statistics" in script2
-        assert "create_statistics('public', 'users', 'users_lower_name_a_b_stats'" in script2
+        assert (
+            "create_statistics('public', 'users', 'users_lower_name_a_b_stats'"
+            in script2
+        )
 
         runner.upgrade("head")
 
@@ -119,7 +125,10 @@ def test_extended_statistics_mixed_column_and_expression(engine: Engine):
     runner = AlembicRunner(engine, metadata)
     try:
         script = runner.autogenerate("create_products_mixed_stats")
-        assert "create_statistics('public', 'products', 'products_code_lower_title_stats'" in script
+        assert (
+            "create_statistics('public', 'products', 'products_code_lower_title_stats'"
+            in script
+        )
         assert "'code'" in script
         assert "'lower(title)'" in script
 
@@ -132,7 +141,9 @@ def test_extended_statistics_mixed_column_and_expression(engine: Engine):
             assert "NDISTINCT" in stat["kinds"]
             assert "MCV" in stat["kinds"]
             assert "code" in stat["columns"]
-            assert any("lower" in expr and "title" in expr for expr in stat["expressions"])
+            assert any(
+                "lower" in expr and "title" in expr for expr in stat["expressions"]
+            )
 
         # Downgrade drops table and stats cleanly
         runner.downgrade("-1")
@@ -166,23 +177,27 @@ def test_extended_statistics_sqlalchemy_column_elements(engine: Engine):
         func.lower(table.c.tag),
         table.c.val1 + table.c.val2,
     )
-    table.append_column(stat)
+    stat._set_parent(table)
 
     runner = AlembicRunner(engine, metadata, schema="test_schema")
     try:
         script = runner.autogenerate("create_metrics_with_expr_objs")
-        assert "create_statistics('test_schema', 'metrics', 'metrics_expr_stat'" in script
+        assert (
+            "create_statistics('test_schema', 'metrics', 'metrics_expr_stat'" in script
+        )
 
         runner.upgrade("head")
 
         with engine.connect() as conn:
             stats = get_pg_extended_stats(conn, "test_schema", "metrics")
             assert "metrics_expr_stat" in stats
-            stat = stats["metrics_expr_stat"]
-            assert "NDISTINCT" in stat["kinds"]
-            assert "MCV" in stat["kinds"]
-            assert "lower(" in stat["def_columns"] and "tag" in stat["def_columns"]
-            assert "(val1 + val2)" in stat["def_columns"]
+            pg_stat = stats["metrics_expr_stat"]
+            assert "NDISTINCT" in pg_stat["kinds"]
+            assert "MCV" in pg_stat["kinds"]
+            assert (
+                "lower(" in pg_stat["def_columns"] and "tag" in pg_stat["def_columns"]
+            )
+            assert "(val1 + val2)" in pg_stat["def_columns"]
 
     finally:
         runner.cleanup()

@@ -1,8 +1,8 @@
+import os
+
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine import Engine
-import os
-
 from testcontainers.community.postgres import PostgresContainer
 
 
@@ -23,6 +23,7 @@ def postgres_url():
 def engine(postgres_url: str):
     """Session-scoped SQLAlchemy engine with NullPool."""
     from sqlalchemy.pool import NullPool
+
     eng = create_engine(postgres_url, poolclass=NullPool)
     yield eng
     eng.dispose()
@@ -35,11 +36,11 @@ def clean_db(engine: Engine):
         conn.execute(text('DROP SCHEMA IF EXISTS "test_schema" CASCADE;'))
         conn.execute(text('DROP SCHEMA IF EXISTS "custom-schema" CASCADE;'))
         conn.execute(text('DROP SCHEMA IF EXISTS "MixedCaseSchema" CASCADE;'))
-        conn.execute(text('DROP SCHEMA IF EXISTS public CASCADE;'))
-        conn.execute(text('CREATE SCHEMA public;'))
-        conn.execute(text('GRANT ALL ON SCHEMA public TO PUBLIC;'))
-        conn.execute(text('GRANT ALL ON SCHEMA public TO CURRENT_USER;'))
-        conn.execute(text('CREATE SCHEMA test_schema;'))
-        conn.execute(text('GRANT ALL ON SCHEMA test_schema TO PUBLIC;'))
-        conn.execute(text('GRANT ALL ON SCHEMA test_schema TO CURRENT_USER;'))
+        conn.execute(text("DROP SCHEMA IF EXISTS public CASCADE;"))
+        conn.execute(text("CREATE SCHEMA public;"))
+        conn.execute(text("GRANT ALL ON SCHEMA public TO PUBLIC;"))
+        conn.execute(text("GRANT ALL ON SCHEMA public TO CURRENT_USER;"))
+        conn.execute(text("CREATE SCHEMA test_schema;"))
+        conn.execute(text("GRANT ALL ON SCHEMA test_schema TO PUBLIC;"))
+        conn.execute(text("GRANT ALL ON SCHEMA test_schema TO CURRENT_USER;"))
     yield
