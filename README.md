@@ -1,4 +1,4 @@
-# ext-stat-plugin
+# SQLAlchemy extended statistics extension
 
 Alembic & SQLAlchemy plugin for PostgreSQL extended statistics (`CREATE STATISTICS` / `DROP STATISTICS`) and column statistics targets (`ALTER TABLE ... ALTER COLUMN ... SET STATISTICS`).
 
@@ -26,25 +26,25 @@ PostgreSQL allows tuning query planner statistics beyond single-column defaults:
 ## Installation
 
 ```bash
-uv add ext-stat-plugin
+uv add sqlalchemy-extended-statistics-extension
 # or
-pip install ext-stat-plugin
+pip install sqlalchemy-extended-statistics-extension
 ```
 
 ---
 
 ## Alembic Setup
 
-To enable autogeneration for extended statistics and column targets, import `ext_stat_plugin` in your Alembic `env.py`:
+To enable autogeneration for extended statistics and column targets, import `sqlalchemy-extended-statistics-extension` in your Alembic `env.py`:
 
 ```python
 # env.py
-import ext_stat_plugin  # noqa: F401
+import sqlalchemy_extended_statistics_extension  # noqa: F401
 from alembic.runtime.plugins import Plugin
-import ext_stat_plugin.main as ext_stat_plugin_main
+import sqlalchemy_extended_statistics_extension.main as plugin_main
 
 # If not using automatic plugin discovery:
-Plugin.setup_plugin_from_module(ext_stat_plugin_main, "extended_statistics_plugin")
+Plugin.setup_plugin_from_module(plugin_main, "extended_statistics_plugin")
 ```
 
 ---
@@ -55,7 +55,7 @@ Plugin.setup_plugin_from_module(ext_stat_plugin_main, "extended_statistics_plugi
 
 ```python
 from sqlalchemy import Column, Integer, MetaData, String, Table, func
-from ext_stat_plugin import ExtendedStatistics, NDISTINCT, MCV, DEPENDENCIES
+from sqlalchemy_extended_statistics_extension import ExtendedStatistics, NDISTINCT, MCV, DEPENDENCIES
 
 metadata = MetaData()
 

@@ -2,17 +2,17 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from ext_stat_plugin.column_statistics_target.operations import (
+from sqlalchemy_extended_statistics_extension.column_statistics_target.operations import (
     AlterColumnStatisticsTargetOp,
     _alter_statistics_target,
 )
-from ext_stat_plugin.extended_statistic.operations import (
+from sqlalchemy_extended_statistics_extension.extended_statistic.operations import (
     CreateStatisticsOp,
     DropStatisticsOp,
     _create_statistics,
     _drop_statistics,
 )
-from ext_stat_plugin.extended_statistic.sqlalchemy import DEPENDENCIES, MCV, NDISTINCT
+from sqlalchemy_extended_statistics_extension.extended_statistic.sqlalchemy import DEPENDENCIES, MCV, NDISTINCT
 
 
 def _make_mock_autogen_context():

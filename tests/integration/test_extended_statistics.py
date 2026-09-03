@@ -2,7 +2,7 @@ import pytest
 from sqlalchemy import Column, Integer, MetaData, String, Table
 from sqlalchemy.engine import Engine
 
-from ext_stat_plugin.extended_statistic.sqlalchemy import (
+from sqlalchemy_extended_statistics_extension.extended_statistic.sqlalchemy import (
     DEPENDENCIES,
     MCV,
     NDISTINCT,

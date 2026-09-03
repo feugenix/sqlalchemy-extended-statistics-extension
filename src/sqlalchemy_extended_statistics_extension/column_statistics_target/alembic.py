@@ -8,7 +8,7 @@ from sqlalchemy import Column, Table, quoted_name, text
 
 from .operations import AlterColumnStatisticsTargetOp
 
-logger = getLogger("alembic.plugins.ext_stats_plugin.column_statistics_target.alembic")
+logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.column_statistics_target.alembic")
 
 
 def _get_column_stat_target(column: Column[Any]) -> str:

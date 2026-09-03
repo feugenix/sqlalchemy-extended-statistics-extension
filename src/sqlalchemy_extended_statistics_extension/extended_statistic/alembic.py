@@ -9,7 +9,7 @@ from sqlalchemy import Connection, Table, quoted_name, text
 from .operations import CreateStatisticsOp, DropStatisticsOp
 from .sqlalchemy import ExtendedStatistics
 
-logger = getLogger("alembic.plugins.ext_stats_plugin.extended_statistics.alembic")
+logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.alembic")
 
 
 def _get_table_ext_stats(metadata_table: Table) -> list[ExtendedStatistics]:

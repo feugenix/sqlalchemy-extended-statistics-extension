@@ -10,7 +10,7 @@ from sqlalchemy import Column, ColumnElement
 from ..utils import coerce_to_quoted, get_alembic_autogenerate_prefix
 from .sqlalchemy import StatisticsKind
 
-logger = getLogger("alembic.plugins.ext_stats_plugin.extended_statistics.operations")
+logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.operations")
 
 
 def _format_expression(expr: str | ColumnElement[Any]) -> str:

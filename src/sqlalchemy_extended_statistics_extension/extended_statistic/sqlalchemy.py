@@ -6,13 +6,13 @@ from sqlalchemy import ColumnElement, Table
 from sqlalchemy.schema import SchemaItem
 from sqlalchemy.sql.base import SchemaEventTarget
 
-type StatisticsKind = Literal["NDISTINCT", "DEPENDENCIES", "MCV"]
+StatisticsKind = Literal["NDISTINCT", "DEPENDENCIES", "MCV"]
 
 NDISTINCT: StatisticsKind = "NDISTINCT"
 DEPENDENCIES: StatisticsKind = "DEPENDENCIES"
 MCV: StatisticsKind = "MCV"
 
-logger = getLogger("alembic.plugins.ext_stats_plugin.extended_statistics.sqlalchemy")
+logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.sqlalchemy")
 
 
 def _get_expression_name(expression: str | ColumnElement[Any]) -> str:

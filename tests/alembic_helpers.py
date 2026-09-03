@@ -9,7 +9,7 @@ from alembic.runtime.plugins import Plugin
 from sqlalchemy import MetaData
 from sqlalchemy.engine import Engine
 
-import ext_stat_plugin.main as ext_stat_plugin_main
+import sqlalchemy_extended_statistics_extension.main as ext_stat_plugin_main
 
 
 class AlembicRunner:

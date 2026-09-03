@@ -7,9 +7,9 @@ from alembic.operations import MigrateOperation, Operations
 
 from ..utils import coerce_to_quoted, get_alembic_autogenerate_prefix
 
-logger = getLogger("alembic.plugins.ext_stats_plugin.column_statistics_target")
+logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.column_statistics_target")
 
-type TargetValue = int | str
+TargetValue = int | str
 
 
 @Operations.register_operation("alter_column_statistics_target")
