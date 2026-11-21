@@ -10,7 +10,9 @@ from sqlalchemy import Column, ColumnElement
 from ..utils import coerce_to_quoted, get_alembic_autogenerate_prefix
 from .sqlalchemy import StatisticsKind
 
-logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.operations")
+logger = getLogger(
+    "alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.operations"
+)
 
 
 def _format_expression(expr: str | ColumnElement[Any]) -> str:
@@ -37,12 +39,14 @@ class CreateStatisticsOp(MigrateOperation):
         statistics_name: str | None,
         kind: set[StatisticsKind],
         *expressions: str | ColumnElement[Any],
+        with_analyze: bool = False,
     ) -> None:
         self.schema_name = schema_name or "public"
         self.table_name = table_name
         self.name = statistics_name
         self.kind = kind
         self.expressions = expressions
+        self.with_analyze = with_analyze
 
     @classmethod
     def create_statistics(
@@ -53,9 +57,17 @@ class CreateStatisticsOp(MigrateOperation):
         statistics_name: str | None,
         kind: list[StatisticsKind],
         expressions: list[str | ColumnElement[Any]],
+        with_analyze: bool = False,
     ) -> Any:
         kind_dedup = set(kind)
-        op = cls(schema_name, table_name, statistics_name, kind_dedup, *expressions)
+        op = cls(
+            schema_name,
+            table_name,
+            statistics_name,
+            kind_dedup,
+            *expressions,
+            with_analyze=with_analyze,
+        )
         return operations.invoke(op)
 
     def reverse(self) -> "DropStatisticsOp":
@@ -108,6 +120,8 @@ class DropStatisticsOp(MigrateOperation):
             self.name,
             self.kind,
             *self.expressions,
+            # If dropped, we want to re-create with analyze by default because we assume that statistics were being used.
+            with_analyze=True,
         )
 
 
@@ -118,6 +132,8 @@ def _get_expressions_string(expressions: Sequence[str | ColumnElement[Any]]) -> 
 @renderers.dispatch_for(CreateStatisticsOp)
 def _create_statistics(autogen_context: AutogenContext, op: CreateStatisticsOp) -> str:
     tmpl = "%(prefix)screate_statistics(%(schema_name)r, %(table_name)r, %(name)r, [%(kind)s], [%(expressions)s])"
+    if op.with_analyze:
+        tmpl = tmpl[:-1] + ", with_analyze=True)"
 
     statistic_kinds_str = ", ".join({repr(k).upper() for k in op.kind})
 
@@ -150,7 +166,7 @@ def create_statistics_impl(
         raise ValueError("Statistics name must be provided for CreateStatisticsOp.")
 
     logger.info(
-        f"Executing CreateStatisticsOp: schema_name={operation.schema_name} table_name={operation.table_name}, name={operation.name}, kind={operation.kind}, expressions={operation.expressions}"
+        f"Executing CreateStatisticsOp: schema_name={operation.schema_name} table_name={operation.table_name}, name={operation.name}, kind={operation.kind}, with_analyze={operation.with_analyze}, expressions={operation.expressions}"
     )
 
     expressions_str = ", ".join(
@@ -163,6 +179,9 @@ def create_statistics_impl(
     operations.execute(
         f"CREATE STATISTICS {quoted_schema_name}.{quoted_statistics_name} ({statistic_kinds_str}) ON {expressions_str} FROM {quoted_schema_name}.{quoted_table_name}"
     )
+
+    if operation.with_analyze:
+        operations.execute(f"ANALYZE {quoted_schema_name}.{quoted_table_name}")
 
 
 @Operations.implementation_for(DropStatisticsOp)

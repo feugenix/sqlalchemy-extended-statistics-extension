@@ -1,6 +1,6 @@
 [project]
 name = "sqlalchemy-extended-statistics-extension"
-version = "0.1.0"
+version = "0.1.3"
 description = "Alembic & SQLAlchemy plugin for PostgreSQL extended statistics and column statistics targets"
 readme = "README.md"
 license = "MIT"
@@ -25,6 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: Database",
+    "Topic :: Database :: Front-Ends",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]

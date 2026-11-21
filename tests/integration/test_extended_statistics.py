@@ -1,5 +1,7 @@
 import pytest
-from sqlalchemy import Column, Integer, MetaData, String, Table
+from alembic.migration import MigrationContext
+from alembic.operations import Operations
+from sqlalchemy import Column, Integer, MetaData, String, Table, text
 from sqlalchemy.engine import Engine
 
 from sqlalchemy_extended_statistics_extension.extended_statistic.sqlalchemy import (
@@ -10,6 +12,68 @@ from sqlalchemy_extended_statistics_extension.extended_statistic.sqlalchemy impo
 )
 from tests.alembic_helpers import AlembicRunner
 from tests.utils import get_pg_extended_stats
+
+
+def _statistics_data_count(connection, statistics_name: str) -> int:
+    return connection.execute(
+        text(
+            """
+            SELECT count(*)
+            FROM pg_statistic_ext_data d
+            JOIN pg_statistic_ext s ON s.oid = d.stxoid
+            WHERE s.stxname = :statistics_name
+            """
+        ),
+        {"statistics_name": statistics_name},
+    ).scalar_one()
+
+
+@pytest.mark.usefixtures("clean_db")
+def test_create_statistics_with_analyze(engine: Engine):
+    metadata = MetaData()
+    users = Table(
+        "users",
+        metadata,
+        Column("id", Integer, primary_key=True),
+        Column("city", String(50)),
+        Column("state", String(50)),
+    )
+
+    with engine.begin() as connection:
+        metadata.create_all(connection)
+        connection.execute(
+            users.insert(),
+            [
+                {
+                    "id": index,
+                    "city": f"city-{index % 3}",
+                    "state": f"state-{index % 2}",
+                }
+                for index in range(1, 31)
+            ],
+        )
+        operations = Operations(MigrationContext.configure(connection))
+
+        operations.create_statistics(  # type: ignore[attr-defined]
+            "public",
+            "users",
+            "users_location_stats",
+            [NDISTINCT],
+            ["city", "state"],
+            with_analyze=False,
+        )
+        assert _statistics_data_count(connection, "users_location_stats") == 0
+
+        operations.execute("DROP STATISTICS public.users_location_stats")
+        operations.create_statistics(  # type: ignore[attr-defined]
+            "public",
+            "users",
+            "users_location_stats",
+            [NDISTINCT],
+            ["city", "state"],
+            with_analyze=True,
+        )
+        assert _statistics_data_count(connection, "users_location_stats") == 1
 
 
 @pytest.mark.usefixtures("clean_db")
