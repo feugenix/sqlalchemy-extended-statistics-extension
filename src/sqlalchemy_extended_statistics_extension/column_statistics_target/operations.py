@@ -7,7 +7,9 @@ from alembic.operations import MigrateOperation, Operations
 
 from ..utils import coerce_to_quoted, get_alembic_autogenerate_prefix
 
-logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.column_statistics_target")
+logger = getLogger(
+    "alembic.plugins.sqlalchemy_extended_statistics_extension.column_statistics_target"
+)
 
 TargetValue = int | str
 
@@ -21,6 +23,7 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
         column_name: str,
         new_target: TargetValue,
         prev_target: TargetValue | None = "default",
+        with_analyze: bool = False,
     ) -> None:
         self.schema_name = schema_name or "public"
         self.table_name = table_name
@@ -32,6 +35,8 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
         self.prev_target = prev_target
         if self.prev_target is not None:
             self._assert_target_value(self.prev_target, "prev_target")
+
+        self.with_analyze = with_analyze
 
     def _assert_target_value(self, target: TargetValue, field_name: str) -> None:
         if target == "default":
@@ -55,8 +60,11 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
         column_name: str,
         new_target: TargetValue,
         prev_target: TargetValue | None = "default",
+        with_analyze: bool = False,
     ) -> Any:
-        op = cls(schema_name, table_name, column_name, new_target, prev_target)
+        op = cls(
+            schema_name, table_name, column_name, new_target, prev_target, with_analyze
+        )
         return operations.invoke(op)
 
     def reverse(self) -> "AlterColumnStatisticsTargetOp":
@@ -65,6 +73,7 @@ class AlterColumnStatisticsTargetOp(MigrateOperation):
             table_name=self.table_name,
             column_name=self.column_name,
             new_target=self.prev_target if self.prev_target is not None else "default",
+            with_analyze=self.with_analyze,
         )
 
 
@@ -76,6 +85,9 @@ def _alter_statistics_target(
 
     if op.prev_target is None or op.prev_target == "default":
         tmpl = "%(prefix)salter_column_statistics_target(%(schema_name)r, %(table)r, %(columns)s, %(new_target)r)"
+
+    if op.with_analyze:
+        tmpl = tmpl[:-1] + ", with_analyze=True)"
 
     return tmpl % {
         "prefix": get_alembic_autogenerate_prefix(autogen_context),
@@ -101,3 +113,6 @@ def _alter_column_statistics_target_impl(
     operations.execute(
         f"ALTER TABLE {quoted_schema}.{quoted_table_name} ALTER COLUMN {quoted_column_name} SET STATISTICS {operation.new_target}"
     )
+
+    if operation.with_analyze:
+        operations.execute(f"ANALYZE {quoted_schema}.{quoted_table_name}")

@@ -88,7 +88,7 @@ def downgrade() -> None:
         with open(self.env_py_path, "w") as f:
             f.write("""from alembic import context
 from sqlalchemy import engine_from_config, pool
-import ext_stat_plugin
+import sqlalchemy_extended_statistics_extension
 
 config = context.config
 target_metadata = config.attributes.get("target_metadata")

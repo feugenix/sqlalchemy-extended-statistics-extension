@@ -12,7 +12,9 @@ NDISTINCT: StatisticsKind = "NDISTINCT"
 DEPENDENCIES: StatisticsKind = "DEPENDENCIES"
 MCV: StatisticsKind = "MCV"
 
-logger = getLogger("alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.sqlalchemy")
+logger = getLogger(
+    "alembic.plugins.sqlalchemy_extended_statistics_extension.extended_statistics.sqlalchemy"
+)
 
 
 def _get_expression_name(expression: str | ColumnElement[Any]) -> str:

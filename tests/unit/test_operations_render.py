@@ -1,9 +1,10 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, call
 
 import pytest
 
 from sqlalchemy_extended_statistics_extension.column_statistics_target.operations import (
     AlterColumnStatisticsTargetOp,
+    _alter_column_statistics_target_impl,
     _alter_statistics_target,
 )
 from sqlalchemy_extended_statistics_extension.extended_statistic.operations import (
@@ -11,8 +12,13 @@ from sqlalchemy_extended_statistics_extension.extended_statistic.operations impo
     DropStatisticsOp,
     _create_statistics,
     _drop_statistics,
+    create_statistics_impl,
 )
-from sqlalchemy_extended_statistics_extension.extended_statistic.sqlalchemy import DEPENDENCIES, MCV, NDISTINCT
+from sqlalchemy_extended_statistics_extension.extended_statistic.sqlalchemy import (
+    DEPENDENCIES,
+    MCV,
+    NDISTINCT,
+)
 
 
 def _make_mock_autogen_context():
@@ -43,12 +49,15 @@ def test_alter_column_statistics_target_op_validation():
 
 
 def test_alter_column_statistics_target_op_reverse():
-    op = AlterColumnStatisticsTargetOp("public", "users", "age", 500, 200)
+    op = AlterColumnStatisticsTargetOp(
+        "public", "users", "age", 500, 200, with_analyze=True
+    )
     rev = op.reverse()
     assert rev.new_target == 200
     assert rev.schema_name == "public"
     assert rev.table_name == "users"
     assert rev.column_name == "age"
+    assert rev.with_analyze is True
 
 
 def test_alter_column_statistics_target_rendering():
@@ -68,6 +77,15 @@ def test_alter_column_statistics_target_rendering():
     assert (
         rendered_default
         == "op.alter_column_statistics_target('public', 'users', 'age', 500)"
+    )
+
+    op_with_analyze = AlterColumnStatisticsTargetOp(
+        "public", "users", "age", 500, "default", with_analyze=True
+    )
+    rendered_with_analyze = _alter_statistics_target(ctx, op_with_analyze)
+    assert (
+        rendered_with_analyze
+        == "op.alter_column_statistics_target('public', 'users', 'age', 500, with_analyze=True)"
     )
 
 
@@ -95,9 +113,79 @@ def test_create_and_drop_statistics_rendering():
     assert "'NDISTINCT'" in rendered_create
     assert "'col1', 'col2'" in rendered_create
 
+    analyzed_create = CreateStatisticsOp(
+        "public",
+        "users",
+        "users_stats",
+        {NDISTINCT},
+        "col1",
+        "col2",
+        with_analyze=True,
+    )
+    assert _create_statistics(ctx, analyzed_create).endswith("with_analyze=True)")
+
     drop_op = DropStatisticsOp("test_schema", "my_stat")
     rendered_drop = _drop_statistics(ctx, drop_op)
     assert rendered_drop == "op.drop_statistics('test_schema', 'my_stat')"
+
+
+@pytest.mark.parametrize(
+    ("with_analyze", "expected_calls"),
+    [
+        (
+            False,
+            [
+                call(
+                    'CREATE STATISTICS "public"."users_stats" (ndistinct) ON "col1" FROM "public"."users"'
+                )
+            ],
+        ),
+        (
+            True,
+            [
+                call(
+                    'CREATE STATISTICS "public"."users_stats" (ndistinct) ON "col1" FROM "public"."users"'
+                ),
+                call('ANALYZE "public"."users"'),
+            ],
+        ),
+    ],
+)
+def test_create_statistics_impl_with_analyze(with_analyze, expected_calls):
+    operations = MagicMock()
+    operation = CreateStatisticsOp(
+        "public",
+        "users",
+        "users_stats",
+        {NDISTINCT},
+        "col1",
+        with_analyze=with_analyze,
+    )
+
+    create_statistics_impl(operations, operation)
+
+    assert operations.execute.call_args_list == expected_calls
+
+
+@pytest.mark.parametrize("with_analyze", [False, True])
+def test_alter_column_statistics_target_impl_with_analyze(with_analyze):
+    operations = MagicMock()
+    operation = AlterColumnStatisticsTargetOp(
+        "public",
+        "users",
+        "age",
+        500,
+        with_analyze=with_analyze,
+    )
+
+    _alter_column_statistics_target_impl(operations, operation)
+
+    expected_calls = [
+        call('ALTER TABLE "public"."users" ALTER COLUMN "age" SET STATISTICS 500')
+    ]
+    if with_analyze:
+        expected_calls.append(call('ANALYZE "public"."users"'))
+    assert operations.execute.call_args_list == expected_calls
 
 
 def test_operations_rendering_quoted_and_special_chars():
